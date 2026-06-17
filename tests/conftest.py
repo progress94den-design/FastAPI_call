@@ -1,56 +1,44 @@
+import shutil
 import sys
+import tempfile
 from pathlib import Path
 
-# Добавляем корневую директорию в PYTHONPATH
-sys.path.insert(0, str(Path(__file__).parent.parent))
-
 import pytest
-import tempfile
-import shutil
 from fastapi.testclient import TestClient
 
-from main import main_app
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
+import filemanager as filemanager_module
 from filemanager import FileManager
+from main import main_app
 
 
-@pytest.fixture(scope="function")
+@pytest.fixture
 def temp_dir():
-    """Создает временную директорию для тестов"""
     temp_path = Path(tempfile.mkdtemp())
     yield temp_path
-    # Удаляем после тестов
     shutil.rmtree(temp_path, ignore_errors=True)
 
 
-@pytest.fixture(scope="function")
+@pytest.fixture
 def file_manager(temp_dir):
-    """Создает FileManager с временной директорией"""
     return FileManager(base_path=temp_dir)
 
 
-@pytest.fixture(scope="function")
+@pytest.fixture
 def test_client(file_manager):
-    """Создает тестовый клиент FastAPI с подмененным file_manager"""
-    import filemanager as fm_module
+    original_manager = filemanager_module.file_manager
+    filemanager_module.file_manager = file_manager
 
-    # Сохраняем оригинальный менеджер
-    original_manager = fm_module.file_manager
-
-    # Подменяем на тестовый (который использует временную директорию)
-    fm_module.file_manager = file_manager
-
-    # Создаем тестовый клиент
     with TestClient(main_app) as client:
         yield client
 
-    # Восстанавливаем оригинальный менеджер
-    fm_module.file_manager = original_manager
+    filemanager_module.file_manager = original_manager
 
 
 @pytest.fixture
 def sample_file_data():
-    """Пример данных для создания файла"""
     return {
         "file_name": "test_file",
-        "content": "Hello, World!"
+        "content": "Hello, World!",
     }
