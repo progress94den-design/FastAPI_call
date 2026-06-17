@@ -1,78 +1,63 @@
+from typing import Callable, TypeVar
+
 import uvicorn
+from fastapi import FastAPI, HTTPException, status
 
-from typing import TypeVar, Callable
-from fastapi import FastAPI, HTTPException, status, UploadFile, File
+import filemanager as filemanager_module
+from schemas import FileCreate, FileListResponse, FileResponse
 
-from schemas import FileResponse, FileListResponse
-from filemanager import file_manager
 
-main_app = FastAPI()
+main_app = FastAPI(title="FastAPI File Manager")
 
-T = TypeVar('T')
+T = TypeVar("T")
+
 
 def safe_file_operation(operation_func: Callable[..., T], **kwargs) -> T:
-    """
-    Функция для безопасного выполнения операций с файлами
-    Args:
-        operation_func: функция для выполнения
-        **kwargs: аргументы для передачи в функцию
-    Returns:
-        Результат выполнения функции
-    Raises:
-        HTTPException: с соответствующим статус кодом
-    """
     try:
         return operation_func(**kwargs)
-    except ValueError as e:
+    except ValueError as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
-        )
-    except FileExistsError as e:
+            detail=str(exc),
+        ) from exc
+    except FileExistsError as exc:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail=str(e)
-        )
-    except FileNotFoundError as e:
+            detail=str(exc),
+        ) from exc
+    except FileNotFoundError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(e)
-        )
-    except PermissionError as e:
+            detail=str(exc),
+        ) from exc
+    except PermissionError as exc:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail=f"Нет доступа к файлу: {str(e)}"
-        )
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Внутренняя ошибка сервера: {str(e)}"
-        )
+            detail=f"No access to file: {exc}",
+        ) from exc
 
 
 @main_app.get("/", response_model=FileListResponse)
-def get_file_list():
-    """Возвращает список имён всех файлов в папке /files (без расширения)"""
-    files = safe_file_operation(file_manager.get_all_files)
+def get_file_list() -> FileListResponse:
+    files = safe_file_operation(filemanager_module.file_manager.get_all_files)
     return FileListResponse(files=files, count=len(files))
 
 
-@main_app.get("/{file_name}", response_model=FileResponse)
-def read_file(file_name: str):
-    """Возвращает содержимое файла"""
+@main_app.post("/", status_code=status.HTTP_201_CREATED, response_model=FileResponse)
+def create_file(payload: FileCreate) -> FileResponse:
     result = safe_file_operation(
-        file_manager.get_file,
-        file_name=file_name,
+        filemanager_module.file_manager.create_file,
+        file_name=payload.file_name,
+        content=payload.content,
     )
     return FileResponse(**result)
 
 
-@main_app.post("/upload/", status_code=status.HTTP_201_CREATED, response_model=FileResponse)
-async def upload_file(file: UploadFile = File(...)):
-    """Загрузка нового файла"""
+@main_app.get("/{file_name}", response_model=FileResponse)
+def read_file(file_name: str) -> FileResponse:
     result = safe_file_operation(
-        file_manager.post_file,
-        file=file,
+        filemanager_module.file_manager.get_file,
+        file_name=file_name,
     )
     return FileResponse(**result)
 
@@ -80,7 +65,7 @@ async def upload_file(file: UploadFile = File(...)):
 if __name__ == "__main__":
     uvicorn.run(
         "main:main_app",
-        host="localhost",
+        host="127.0.0.1",
         port=8000,
         reload=True,
     )
