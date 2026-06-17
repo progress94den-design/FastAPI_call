@@ -1,13 +1,14 @@
 from pydantic import BaseModel, Field
 
 
-class FileBase(BaseModel):
-    file_name: str = Field(min_length=1, max_length=255, description="Имя файла без расширения")
-    content: str = Field(default="", description="Содержимое файла")
+class FileCreate(BaseModel):
+    file_name: str = Field(min_length=1, max_length=255)
+    content: str = ""
 
 
-class FileResponse(FileBase):
-    pass
+class FileResponse(BaseModel):
+    file_name: str
+    content: str
 
 
 class FileListResponse(BaseModel):
