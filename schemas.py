@@ -1,9 +1,4 @@
-from pydantic import BaseModel, Field
-
-
-class FileCreate(BaseModel):
-    file_name: str = Field(min_length=1, max_length=255)
-    content: str = ""
+from pydantic import BaseModel
 
 
 class FileResponse(BaseModel):
