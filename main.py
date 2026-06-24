@@ -1,10 +1,10 @@
 from typing import Callable, TypeVar
 
 import uvicorn
-from fastapi import FastAPI, HTTPException, status
+from fastapi import FastAPI, File, HTTPException, UploadFile, status
 
 import filemanager as filemanager_module
-from schemas import FileCreate, FileListResponse, FileResponse
+from schemas import FileListResponse, FileResponse
 
 
 main_app = FastAPI(title="FastAPI File Manager")
@@ -44,11 +44,12 @@ def get_file_list() -> FileListResponse:
 
 
 @main_app.post("/", status_code=status.HTTP_201_CREATED, response_model=FileResponse)
-def create_file(payload: FileCreate) -> FileResponse:
+async def upload_file(file: UploadFile = File(...)) -> FileResponse:
+    content = await file.read()
     result = safe_file_operation(
-        filemanager_module.file_manager.create_file,
-        file_name=payload.file_name,
-        content=payload.content,
+        filemanager_module.file_manager.upload_file,
+        file_name=file.filename or "",
+        content=content,
     )
     return FileResponse(**result)
 
